@@ -167,6 +167,10 @@ and vice versa.
    * @nullable
    */
   confidence?: number | null;
+  /** @nullable */
+  url?: string | null;
+  /** @nullable */
+  cveId?: string | null;
 }
 
 export interface ScanSummary {

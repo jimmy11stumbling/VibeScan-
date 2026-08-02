@@ -249,6 +249,8 @@ export const GetReportResponse = zod.object({
           .describe(
             "Confidence score 0–100. Measures how certain the scanner is that this\nfinding is a real, reproducible issue (not a false positive). Distinct\nfrom CVSS severity — a low-severity finding can have high confidence\nand vice versa.\n",
           ),
+        url: zod.string().nullish(),
+        cveId: zod.string().nullish(),
       }),
     ),
     summary: zod.object({
@@ -501,6 +503,8 @@ export const GetSharedReportResponse = zod.object({
           .describe(
             "Confidence score 0–100. Measures how certain the scanner is that this\nfinding is a real, reproducible issue (not a false positive). Distinct\nfrom CVSS severity — a low-severity finding can have high confidence\nand vice versa.\n",
           ),
+        url: zod.string().nullish(),
+        cveId: zod.string().nullish(),
       }),
     ),
     summary: zod.object({

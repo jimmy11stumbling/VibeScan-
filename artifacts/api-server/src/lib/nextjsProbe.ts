@@ -106,6 +106,7 @@ export async function runNextjsProbe(
         "Combined with source map exposure, this allows an attacker to precisely locate the correct " +
         "source map for every deployed JS chunk — mapping minified code back to your original source.",
       evidence: `/_next/BUILD_ID returned: ${buildId}`,
+      url: `${origin}/_next/BUILD_ID`,
       solution:
         "Block `/_next/BUILD_ID` at the reverse proxy or CDN level. " +
         "In Vercel, this is already hidden. If self-hosting with nginx, add: `location = /_next/BUILD_ID { deny all; }`",
@@ -132,6 +133,7 @@ export async function runNextjsProbe(
           "including comments, variable names, business logic, and sometimes embedded secrets. " +
           "An attacker can reconstruct your entire application source code from the browser DevTools.",
         evidence: `Source map accessible at: ${mapUrl}`,
+        url: mapUrl,
         solution:
           "In `next.config.js`, set `productionBrowserSourceMaps: false` (this is the default — check if you or a plugin enabled it). " +
           "Alternatively, block `.map` files at the CDN or nginx level: `location ~* \\.js\\.map$ { deny all; }`",
@@ -194,6 +196,7 @@ export async function runNextjsProbe(
         "This endpoint is only intended for local development and should never be reachable in production. " +
         "Its presence indicates the application may be running in development mode, which disables many security optimizations.",
       evidence: `/_next/webpack-hmr returned HTTP 200`,
+      url: `${origin}/_next/webpack-hmr`,
       solution:
         "Ensure the application is started with `next start` (production mode) rather than `next dev`. " +
         "Set `NODE_ENV=production` in your deployment environment. " +

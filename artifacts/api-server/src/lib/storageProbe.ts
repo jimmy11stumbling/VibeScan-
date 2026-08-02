@@ -192,6 +192,7 @@ export async function runStorageProbe(
         "An attacker can enumerate every file stored in the bucket and download any file not individually protected. " +
         "Public bucket listings frequently expose user uploads, database backups, internal documents, and build artifacts.",
       evidence: `Bucket \`${bucket.bucketName}\` returned a public file listing at: ${bucket.listUrl}`,
+      url: bucket.listUrl,
       solution: FIX_BY_PROVIDER[bucket.type],
       cweId: "CWE-552",
       cvssScore: 7.5,

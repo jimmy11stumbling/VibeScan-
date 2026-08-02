@@ -97,6 +97,10 @@ export interface ScanVulnerability {
   wstgId?: string | null;
   /** Confidence score 0–100: how certain we are this is a real finding, not a false positive */
   confidence?: number | null;
+  /** Direct link to the exposed page / endpoint (e.g. the Swagger UI, GraphQL endpoint, leaked source map) */
+  url?: string | null;
+  /** Primary CVE identifier for vulnerability findings (e.g. "CVE-2023-1234") */
+  cveId?: string | null;
 }
 
 export interface ScanResult {

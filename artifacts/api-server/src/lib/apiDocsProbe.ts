@@ -139,6 +139,7 @@ export async function runApiDocsProbe(baseUrl: string): Promise<ScanVulnerabilit
           "and allows live API calls directly from the browser. " +
           "Attackers use this to enumerate endpoints and test access controls systematically.",
         evidence: `Swagger UI accessible at: ${origin}${path}`,
+        url: `${origin}${path}`,
         solution:
           "Move API documentation behind authentication, or restrict access to internal/corporate networks only. " +
           "In Express: add auth middleware before the swagger route. " +
@@ -171,6 +172,7 @@ export async function runApiDocsProbe(baseUrl: string): Promise<ScanVulnerabilit
         evidence:
           `OpenAPI spec at \`${origin}${path}\` returned HTTP 200.` +
           (pathCount ? ` ${pathCount} API paths documented.` : ""),
+        url: `${origin}${path}`,
         solution:
           "Serve the OpenAPI spec only from behind authentication, or remove the spec endpoint entirely in production. " +
           "If needed for CI/CD tooling, use a build-time step to generate specs rather than serving them at runtime.",
@@ -197,6 +199,7 @@ export async function runApiDocsProbe(baseUrl: string): Promise<ScanVulnerabilit
           "your full OpenAPI specification — exposing all endpoints, parameters, and auth flows " +
           "without requiring the attacker to do any discovery work.",
         evidence: `Redoc UI accessible at: ${origin}${path}`,
+        url: `${origin}${path}`,
         solution:
           "Restrict the Redoc route behind authentication or remove it from production. " +
           "API documentation should only be accessible to authenticated developers.",

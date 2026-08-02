@@ -131,6 +131,7 @@ export async function runGraphqlProbe(baseUrl: string): Promise<ScanVulnerabilit
         evidence:
           `GraphQL endpoint at \`${url}\` returned ${typeCount} schema types via introspection.` +
           (mutationAvailable ? " Mutation type is present." : ""),
+        url,
         solution:
           "Disable introspection in production. In Apollo Server: `introspection: false` in the constructor options. " +
           "In GraphQL Yoga: `maskedErrors` + disable introspection. " +
@@ -159,6 +160,7 @@ export async function runGraphqlProbe(baseUrl: string): Promise<ScanVulnerabilit
             "when querying invalid field names. This allows attackers to enumerate valid field names " +
             "incrementally by observing suggestion responses.",
           evidence: `Field suggestion response detected at \`${url}\``,
+          url,
           solution:
             "Disable field suggestions. In Apollo Server 4: `includeStacktraceInErrorResponses: false` and use a custom `formatError` to strip suggestions. " +
             "Consider the `graphql-disable-introspection` package or `graphql-armor` which strips suggestions by default.",

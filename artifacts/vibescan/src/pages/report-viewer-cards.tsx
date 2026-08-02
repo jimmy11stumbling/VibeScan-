@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Globe, Server, Package, AlertTriangle, Network,
   HelpCircle, Flag, RotateCcw, Filter, ChevronDown, Search, Minus,
-  Sparkles, Zap, Code2, Database, Terminal, Check, Copy,
+  Sparkles, Zap, Code2, Database, Terminal, Check, Copy, ExternalLink,
 } from "lucide-react";
 import { cn, getSeverityColors, getGradeColor } from "@/lib/utils";
 import type { Vulnerability } from "@workspace/api-client-react";
@@ -104,6 +104,16 @@ export function extractInnerPageSource(
   return null;
 }
 
+/**
+ * Extracts the first CVE ID from a finding's evidence string.
+ * Used as a fallback for older findings that pre-date the structured `cveId` field.
+ */
+function extractCveFromEvidence(evidence: string | null | undefined): string | null {
+  if (!evidence) return null;
+  const m = /CVE-\d{4}-\d{4,}/i.exec(evidence);
+  return m ? m[0].toUpperCase() : null;
+}
+
 // ─── Vuln card ────────────────────────────────────────────────────────────────
 
 export function VulnCard({
@@ -174,6 +184,19 @@ export function VulnCard({
                 {innerPageSource}
               </span>
             )}
+            {vuln.url && (
+              <a
+                href={vuln.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-500/10 border border-orange-500/25 rounded text-[10px] font-mono leading-none text-orange-400/80 hover:bg-orange-500/20 hover:text-orange-300 transition-colors shrink-0 self-start sm:self-auto"
+                title={`Open exposed page: ${vuln.url}`}
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+                Open
+              </a>
+            )}
           </div>
         </div>
         <div className={cn("hidden md:flex items-center gap-1.5 text-xs font-medium shrink-0 ml-4", meta.color)}>
@@ -239,8 +262,38 @@ export function VulnCard({
                     <div className="whitespace-pre-wrap">{vuln.solution}</div>
                   </div>
 
-                  {(vuln.cweId || vuln.cvssScore != null || vuln.wstgId || vuln.confidence != null) && (
+                  {/* Exposed page link — full-width button in the detail pane */}
+                  {vuln.url && (
+                    <a
+                      href={vuln.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="mt-4 flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-orange-500/8 border border-orange-500/25 hover:bg-orange-500/15 hover:border-orange-500/40 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ExternalLink className="w-4 h-4 text-orange-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-orange-300 leading-none mb-0.5">Exposed page</p>
+                          <p className="text-xs font-mono text-orange-400/70 truncate">{vuln.url}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-orange-400/60 group-hover:text-orange-300 shrink-0 transition-colors">Open ↗</span>
+                    </a>
+                  )}
+
+                  {(vuln.cweId || vuln.cvssScore != null || vuln.wstgId || vuln.confidence != null || vuln.cveId || extractCveFromEvidence(vuln.evidence)) && (
                     <div className="mt-4 flex gap-3 flex-wrap">
+                      {/* CVE → NVD link */}
+                      {(vuln.cveId ?? extractCveFromEvidence(vuln.evidence)) && (
+                        <a
+                          href={`https://nvd.nist.gov/vuln/detail/${vuln.cveId ?? extractCveFromEvidence(vuln.evidence)}`}
+                          target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-red-300 bg-red-950/60 border border-red-500/30 px-2 py-1 rounded hover:bg-red-900/60 hover:border-red-500/50 transition-colors"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {vuln.cveId ?? extractCveFromEvidence(vuln.evidence)}
+                        </a>
+                      )}
                       {vuln.cweId && (
                         <a
                           href={`https://cwe.mitre.org/data/definitions/${vuln.cweId.replace("CWE-", "")}.html`}

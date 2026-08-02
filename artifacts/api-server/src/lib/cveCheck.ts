@@ -549,6 +549,7 @@ export async function checkForKnownVulnerabilities(
         cweId: "CWE-1104",
         cvssScore: score > 0 ? score : null,
         wstgId: "WSTG-INFO-09",
+        cveId: cves[0] ?? null,
       }));
     }
   }

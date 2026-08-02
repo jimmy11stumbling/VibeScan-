@@ -97,6 +97,7 @@ async function runPocketBaseProbes(
           "An attacker can attempt to brute-force the admin password or exploit any auth bypass vulnerability. " +
           "The admin UI grants full database access, file manager, and collection schema editing.",
         evidence: `Admin UI accessible at: ${pbUrl}/_/`,
+        url: `${pbUrl}/_/`,
         solution:
           "Restrict access to `/_/` using a reverse-proxy IP allowlist (nginx: `allow` / `deny` directives, or Caddy's `remote_ip` matcher). " +
           "Alternatively, set a strong random admin password (32+ characters) and consider disabling the UI in production via the `--dev` flag absence.",
@@ -131,6 +132,7 @@ async function runPocketBaseProbes(
           "This exposes your database structure — table names, field types, and index definitions — " +
           "which an attacker uses to craft targeted injection or enumeration attacks.",
         evidence: `${pbUrl}/api/collections returned HTTP 200 with collection data.${collectionNames}`,
+        url: `${pbUrl}/api/collections`,
         solution:
           "In PocketBase settings → Collections → (each collection) → API Rules, set a non-empty rule for `listRule`. " +
           "The default empty string means 'allow all'. Use `@request.auth.id != ''` to require authentication.",
@@ -200,6 +202,7 @@ async function runAppwriteProbes(
           "While it requires credentials to log in, exposing the console increases the attack surface " +
           "for credential brute-forcing and any future authentication CVEs.",
         evidence: `Appwrite console accessible at: ${awUrl}/console`,
+        url: `${awUrl}/console`,
         solution:
           "Restrict the console path using a reverse proxy or Appwrite's built-in `_APP_CONSOLE_WHITELIST_IPS` environment variable. " +
           "Set `_APP_CONSOLE_WHITELIST_ROOT=enabled` to limit console access to the root account only during initial setup.",
@@ -224,6 +227,7 @@ async function runAppwriteProbes(
           "It reveals the Appwrite version, queue status, and storage health — " +
           "information useful for fingerprinting the exact version and targeting known CVEs.",
         evidence: `${awUrl}/v1/health returned HTTP 200 with health data`,
+        url: `${awUrl}/v1/health`,
         solution:
           "Add an `_APP_CONSOLE_WHITELIST_IPS` restriction or use a reverse proxy to block `/v1/health` for external traffic.",
         cweId: "CWE-200",
