@@ -17,6 +17,8 @@ export const scansTable = pgTable("scans", {
   startedAt: timestamp("started_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   error: text("error"),
+  /** Live per-probe checklist — array of ScanStep objects written during scanning */
+  steps: jsonb("steps"),
 }, (table) => [
   index("idx_scans_user_id").on(table.userId),
   index("idx_scans_status").on(table.status),

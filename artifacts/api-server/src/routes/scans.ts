@@ -340,6 +340,7 @@ router.get("/scans/:id/status", async (req, res): Promise<void> => {
       error: scan.error ?? null,
       reportId,
       grade,
+      steps: (scan.steps as unknown[] | null) ?? null,
     }),
   );
 });

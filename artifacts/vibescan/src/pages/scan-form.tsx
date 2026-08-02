@@ -67,7 +67,7 @@ export default function ScanFormPage() {
           if (data.checkoutUrl) {
             window.location.href = data.checkoutUrl;
           } else {
-            setLocation(`/dashboard?scan=${data.scanId}`);
+            setLocation(`/scan/${data.scanId}`);
           }
         },
       },

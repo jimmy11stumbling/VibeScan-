@@ -50,26 +50,78 @@ async function processScanJob(job: ScanJob): Promise<void> {
 
   log.info("Scan job started");
 
-  // ── 1. Mark as scanning ───────────────────────────────────────────────
+  // ── 1. Mark as scanning + initialise per-probe step list ─────────────
+  type ScanStep = {
+    key: string; label: string;
+    status: "pending" | "running" | "done" | "error";
+    findings?: number; startedAt?: string; doneAt?: string;
+  };
+
+  const BASIC_STEPS: ScanStep[] = [
+    { key: "ssl",        label: "TLS / SSL Assessment",           status: "pending" },
+    { key: "recon",      label: "Reconnaissance",                  status: "pending" },
+    { key: "crawl",      label: "Site Crawl & Link Analysis",      status: "pending" },
+    { key: "headers",    label: "Security Headers",                status: "pending" },
+    { key: "dns",        label: "DNS Security",                    status: "pending" },
+    { key: "cve",        label: "Known Vulnerability Matching",    status: "pending" },
+    { key: "jwt",        label: "JWT Token Analysis",              status: "pending" },
+    { key: "takeover",   label: "Subdomain Takeover",              status: "pending" },
+    { key: "sourcemaps", label: "Source Map Exposure",             status: "pending" },
+    { key: "vibestack",  label: "Supabase / Firebase Security",    status: "pending" },
+    { key: "baas",       label: "BaaS Open Data",                  status: "pending" },
+    { key: "graphql",    label: "GraphQL Introspection",           status: "pending" },
+    { key: "apidocs",    label: "API Documentation Exposure",      status: "pending" },
+    { key: "nextjs",     label: "Next.js Configuration",           status: "pending" },
+    { key: "storage",    label: "Cloud Storage Buckets",           status: "pending" },
+  ];
+  const DEEP_STEPS: ScanStep[] = [
+    { key: "jssecrets",  label: "JavaScript Secret Scanning",      status: "pending" },
+    { key: "traversal",  label: "Path Traversal Probing",          status: "pending" },
+  ];
+
+  const allSteps: ScanStep[] = [...BASIC_STEPS, ...(tier === "deep" ? DEEP_STEPS : [])];
+  const stepsMap = new Map<string, ScanStep>(allSteps.map((s) => [s.key, { ...s }]));
+
   await db
     .update(scansTable)
-    .set({ status: "scanning", startedAt: new Date() })
+    .set({ status: "scanning", startedAt: new Date(), steps: allSteps })
     .where(eq(scansTable.id, scanId));
+
+  /** Called by scanner probes and by ssl/recon wrappers below */
+  const onStep = (key: string, status: "running" | "done" | "error", findings?: number): void => {
+    const step = stepsMap.get(key);
+    if (!step) return;
+    step.status = status;
+    if (status === "running") step.startedAt = new Date().toISOString();
+    else { step.doneAt = new Date().toISOString(); if (findings !== undefined) step.findings = findings; }
+    db.update(scansTable)
+      .set({ steps: Array.from(stepsMap.values()) })
+      .where(eq(scansTable.id, scanId))
+      .catch(() => {});
+  };
 
   // ── 2. Run header scan + SSL Labs check in parallel ───────────────────
   log.info("Starting HTTP scan, SSL Labs check, and reconnaissance in parallel");
 
   // SSL Labs is best-effort and can take up to 120 seconds — start it early
-  const sslLabsPromise = checkSslLabs(targetUrl).catch((err) => {
-    log.warn({ err }, "SSL Labs check failed (non-fatal)");
-    return null;
-  });
+  onStep("ssl", "running");
+  const sslLabsPromise = checkSslLabs(targetUrl)
+    .then((r) => { onStep("ssl", r ? "done" : "error"); return r; })
+    .catch((err) => {
+      onStep("ssl", "error");
+      log.warn({ err }, "SSL Labs check failed (non-fatal)");
+      return null;
+    });
 
   // Recon runs concurrently: DNS enumeration, subdomain brute-force, port scan
-  const reconPromise = runRecon(targetUrl).catch((err) => {
-    log.warn({ err }, "Recon failed (non-fatal)");
-    return null;
-  });
+  onStep("recon", "running");
+  const reconPromise = runRecon(targetUrl)
+    .then((r) => { onStep("recon", r ? "done" : "error"); return r; })
+    .catch((err) => {
+      onStep("recon", "error");
+      log.warn({ err }, "Recon failed (non-fatal)");
+      return null;
+    });
 
   // Hard deadline for the entire HTTP scan phase.
   // Individual probes have per-request timeouts (5–10 s each) but the aggregate
@@ -85,7 +137,7 @@ async function processScanJob(job: ScanJob): Promise<void> {
         SCAN_HTTP_TIMEOUT_MS,
       ),
     );
-    scanResult = await Promise.race([runScan(targetUrl, tier), scanTimeout]);
+    scanResult = await Promise.race([runScan(targetUrl, tier, onStep), scanTimeout]);
     log.info(
       { vulnCount: scanResult.vulnerabilities.length, durationMs: scanResult.requestDurationMs },
       "HTTP scan complete",

@@ -166,6 +166,16 @@ export const GetScanStatusHeader = zod.object({
 export const getScanStatusResponseProgressMin = 0;
 export const getScanStatusResponseProgressMax = 100;
 
+export const ScanStepSchema = zod.object({
+  key: zod.string(),
+  label: zod.string(),
+  status: zod.enum(["pending", "running", "done", "error"]),
+  findings: zod.number().optional(),
+  startedAt: zod.string().optional(),
+  doneAt: zod.string().optional(),
+});
+export type ScanStep = zod.infer<typeof ScanStepSchema>;
+
 export const GetScanStatusResponse = zod.object({
   id: zod.string(),
   targetUrl: zod.string(),
@@ -189,6 +199,7 @@ export const GetScanStatusResponse = zod.object({
   error: zod.string().nullish(),
   reportId: zod.string().nullish(),
   grade: zod.string().nullish(),
+  steps: zod.array(ScanStepSchema).nullish(),
 });
 
 /**

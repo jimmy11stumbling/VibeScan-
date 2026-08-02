@@ -233,7 +233,9 @@ function analyzeCookies(setCookieHeader: string | undefined): ScanVulnerability[
   return findings;
 }
 
-export async function runScan(targetUrl: string, tier: string): Promise<ScanResult> {
+export type StepCallback = (key: string, status: "running" | "done" | "error", findings?: number) => void;
+
+export async function runScan(targetUrl: string, tier: string, onStep?: StepCallback): Promise<ScanResult> {
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -678,40 +680,54 @@ export async function runScan(targetUrl: string, tier: string): Promise<ScanResu
   // All checks run concurrently — active HTTP probes, DNS checks, site crawl,
   // CVE lookup, JWT analysis, subdomain takeover, and (deep only) JS secret
   // scanning and path traversal.
+
+  /** Wrap a probe with onStep lifecycle events (replaces individual .catch(() => [])) */
+  const wp = (key: string, p: Promise<ScanVulnerability[]>): Promise<ScanVulnerability[]> => {
+    onStep?.(key, "running");
+    return p.then(
+      (r) => { onStep?.(key, "done", r.length); return r; },
+      () => { onStep?.(key, "error", 0); return []; },
+    );
+  };
+
   // Run crawl separately to capture pagesVisited alongside findings
+  onStep?.("crawl", "running");
   const crawlPromise = crawlAndCheck(
     finalUrl, html, rawHeaders, tier === "deep" ? 20 : 0,
-  ).catch(() => ({ vulnerabilities: [], pagesVisited: [], probedNotFound: [] }));
+  ).then(
+    (r) => { onStep?.("crawl", "done", r.vulnerabilities.length); return r; },
+    () => { onStep?.("crawl", "error", 0); return { vulnerabilities: [], pagesVisited: [], probedNotFound: [] }; },
+  );
 
   const probePromises: Promise<ScanVulnerability[]>[] = [
-    runAllProbes(finalUrl, html).catch(() => []),
-    checkDnsSecurity(finalUrl).catch(() => []),
-    checkForKnownVulnerabilities(html, rawHeaders).catch(() => []),
+    wp("headers",    runAllProbes(finalUrl, html)),
+    wp("dns",        checkDnsSecurity(finalUrl)),
+    wp("cve",        checkForKnownVulnerabilities(html, rawHeaders)),
     // Passive JWT analysis — no extra HTTP requests
-    analyzeJwts(rawHeaders, html).catch(() => []),
+    wp("jwt",        analyzeJwts(rawHeaders, html)),
     // Subdomain takeover — 1-2 DNS + HTTP checks
-    checkSubdomainTakeover(finalUrl).catch(() => []),
+    wp("takeover",   checkSubdomainTakeover(finalUrl)),
     // Source map exposure — checks JS bundles for .map files
-    checkSourceMaps(html, finalUrl).catch(() => []),
+    wp("sourcemaps", checkSourceMaps(html, finalUrl)),
     // Vibe-stack database security — Supabase RLS + Firebase rules (both tiers)
-    checkVibeStackSecurity(html, finalUrl, tier).catch(() => []),
+    wp("vibestack",  checkVibeStackSecurity(html, finalUrl, tier)),
     // BaaS open-data: PocketBase admin UI / collection exposure, Appwrite console
-    runBaasProbes(finalUrl, html).catch(() => []),
+    wp("baas",       runBaasProbes(finalUrl, html)),
     // GraphQL introspection enabled, field suggestion schema leakage
-    runGraphqlProbe(finalUrl).catch(() => []),
+    wp("graphql",    runGraphqlProbe(finalUrl)),
     // Swagger UI / OpenAPI spec / Redoc exposed without auth
-    runApiDocsProbe(finalUrl).catch(() => []),
+    wp("apidocs",    runApiDocsProbe(finalUrl)),
     // Next.js source maps, build ID, HMR endpoint, NEXT_PUBLIC_ secrets
-    runNextjsProbe(finalUrl, html, rawHeaders).catch(() => []),
+    wp("nextjs",     runNextjsProbe(finalUrl, html, rawHeaders)),
     // Cloud storage public listing: S3, GCS, Azure Blob, R2
-    runStorageProbe(finalUrl, html).catch(() => []),
+    wp("storage",    runStorageProbe(finalUrl, html)),
   ];
 
   if (tier === "deep") {
     probePromises.push(
-      scanJavaScriptForSecrets(html, finalUrl).catch(() => []),
+      wp("jssecrets", scanJavaScriptForSecrets(html, finalUrl)),
       // Active path traversal probing — multiple HTTP requests
-      checkPathTraversal(finalUrl, html).catch(() => []),
+      wp("traversal", checkPathTraversal(finalUrl, html)),
     );
   }
 
