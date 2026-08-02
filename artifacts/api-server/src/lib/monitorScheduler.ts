@@ -20,9 +20,11 @@ import { fetchRecentCves, matchCvesToTechnologies } from "./cveMonitor";
 import { sendMonitorCveAlertEmail, sendMonitorScanQueuedEmail } from "./mailer";
 import { randomUUID } from "node:crypto";
 
-const WEEKLY_QUEUE  = "monitor-weekly-scans";
-const CVE_QUEUE     = "monitor-cve-check";
-const SIX_DAYS_MS   = 6 * 24 * 60 * 60 * 1000;
+const WEEKLY_QUEUE    = "monitor-weekly-scans";
+const CVE_QUEUE       = "monitor-cve-check";
+const SIX_DAYS_MS     = 6 * 24 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS   = 7 * 24 * 60 * 60 * 1000;
+const THREE_DAYS_MS   = 3 * 24 * 60 * 60 * 1000;
 
 // ─── Weekly rescan ────────────────────────────────────────────────────────────
 
@@ -42,6 +44,8 @@ async function runWeeklyScans(): Promise<void> {
     if (sub.status !== "active") return false;
     if (sub.expiresAt <= now) return false;
     if (!sub.lastScanAt) return true;
+    // Use nextScanAt for adaptive cadence; fall back to 6-day cutoff for older rows
+    if (sub.nextScanAt) return sub.nextScanAt <= now;
     return sub.lastScanAt <= cutoff;
   });
 

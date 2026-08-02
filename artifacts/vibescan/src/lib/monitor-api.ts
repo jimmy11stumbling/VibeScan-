@@ -10,6 +10,8 @@ export interface MonitorSubscription {
   expiresAt: string;
   lastScanAt: string | null;
   lastReportId: string | null;
+  nextScanAt: string | null;
+  webhookUrl: string | null;
   createdAt: string;
   lastReport: { id: string; grade: string | null; riskScore: number | null } | null;
   alertCount: number;
@@ -32,10 +34,11 @@ export async function listMonitorSubscriptions(): Promise<MonitorSubscription[]>
 
 export async function createMonitorSubscription(
   targetUrl: string,
+  webhookUrl?: string,
 ): Promise<{ subscription: MonitorSubscription; initialScanId: string | null }> {
   return customFetch("/api/monitor/subscriptions", {
     method: "POST",
-    body: JSON.stringify({ targetUrl }),
+    body: JSON.stringify({ targetUrl, webhookUrl: webhookUrl || undefined }),
     headers: { "Content-Type": "application/json" },
   });
 }

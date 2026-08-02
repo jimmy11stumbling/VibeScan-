@@ -78,6 +78,11 @@ import { checkSourceMaps } from "./sourceMaps";
 import { checkVibeStackSecurity } from "./vibeStackProbes";
 import { autoEnrichConfidence } from "./scoring";
 import { detectTechnologies } from "./techFingerprint";
+import { runBaasProbes } from "./baasProbes";
+import { runGraphqlProbe } from "./graphqlProbe";
+import { runApiDocsProbe } from "./apiDocsProbe";
+import { runNextjsProbe } from "./nextjsProbe";
+import { runStorageProbe } from "./storageProbe";
 
 export interface ScanVulnerability {
   id: string;
@@ -690,6 +695,16 @@ export async function runScan(targetUrl: string, tier: string): Promise<ScanResu
     checkSourceMaps(html, finalUrl).catch(() => []),
     // Vibe-stack database security — Supabase RLS + Firebase rules (both tiers)
     checkVibeStackSecurity(html, finalUrl, tier).catch(() => []),
+    // BaaS open-data: PocketBase admin UI / collection exposure, Appwrite console
+    runBaasProbes(finalUrl, html).catch(() => []),
+    // GraphQL introspection enabled, field suggestion schema leakage
+    runGraphqlProbe(finalUrl).catch(() => []),
+    // Swagger UI / OpenAPI spec / Redoc exposed without auth
+    runApiDocsProbe(finalUrl).catch(() => []),
+    // Next.js source maps, build ID, HMR endpoint, NEXT_PUBLIC_ secrets
+    runNextjsProbe(finalUrl, html, rawHeaders).catch(() => []),
+    // Cloud storage public listing: S3, GCS, Azure Blob, R2
+    runStorageProbe(finalUrl, html).catch(() => []),
   ];
 
   if (tier === "deep") {

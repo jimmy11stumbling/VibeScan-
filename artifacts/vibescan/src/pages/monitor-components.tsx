@@ -335,6 +335,8 @@ export function SubscriptionCard({ sub, onCancel }: { sub: MonitorSubscription; 
 
 export function AddSubscriptionForm({ onSuccess }: { onSuccess: () => void }) {
   const [url, setUrl] = useState("https://");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [showWebhook, setShowWebhook] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -344,12 +346,14 @@ export function AddSubscriptionForm({ onSuccess }: { onSuccess: () => void }) {
     setError(null);
     setLoading(true);
     try {
-      await createMonitorSubscription(url.trim());
+      await createMonitorSubscription(url.trim(), webhookUrl.trim() || undefined);
       toast({
         title: "Monitoring activated",
         description: `Baseline scan queued for ${url.trim()} — check Scan History once it completes.`,
       });
       setUrl("https://");
+      setWebhookUrl("");
+      setShowWebhook(false);
       onSuccess();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create subscription";
@@ -382,6 +386,33 @@ export function AddSubscriptionForm({ onSuccess }: { onSuccess: () => void }) {
           {loading ? "Starting…" : "Start Monitoring"}
         </button>
       </div>
+
+      {/* Webhook toggle */}
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={() => setShowWebhook((x) => !x)}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+        >
+          <Plus className={cn("w-3 h-3 transition-transform", showWebhook ? "rotate-45" : "")} />
+          {showWebhook ? "Hide" : "Add webhook URL"} (optional)
+        </button>
+        {showWebhook && (
+          <div className="mt-2">
+            <input
+              type="url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://your-server.com/webhook"
+              className="w-full bg-background/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-400/50 transition-colors"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              We'll POST scan results and CVE alerts here as JSON. Useful for Slack, Discord, or custom automations.
+            </p>
+          </div>
+        )}
+      </div>
+
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
     </form>
   );

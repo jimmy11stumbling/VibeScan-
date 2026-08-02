@@ -290,19 +290,58 @@ async function processScanJob(job: ScanJob): Promise<void> {
     // ── 8. Update monitor subscription if this was a monitored scan ───
     if (monitorSubscriptionId) {
       try {
-        await db
+        // Adaptive cadence: if new high/critical findings, rescan in 3 days;
+        // otherwise use the standard 7-day interval.
+        const hasNewHighFindings = scanResult.vulnerabilities.some(
+          (v) => v.severity === "critical" || v.severity === "high",
+        );
+        const cadenceDays = hasNewHighFindings ? 3 : 7;
+        const nextScanAt = new Date(completedAt.getTime() + cadenceDays * 24 * 60 * 60 * 1000);
+
+        const [updatedSub] = await db
           .update(monitorSubscriptionsTable)
           .set({
             lastScanAt: completedAt,
             lastReportId: report.id,
+            nextScanAt,
           })
           .where(
             and(
               eq(monitorSubscriptionsTable.id, monitorSubscriptionId),
               eq(monitorSubscriptionsTable.userId, userId),
             ),
-          );
-        log.info({ monitorSubscriptionId, reportId: report.id }, "Monitor subscription updated");
+          )
+          .returning();
+
+        log.info(
+          { monitorSubscriptionId, reportId: report.id, cadenceDays, nextScanAt },
+          "Monitor subscription updated with adaptive cadence",
+        );
+
+        // Fire webhook if configured
+        if (updatedSub?.webhookUrl) {
+          const webhookPayload = {
+            event: "scan_complete",
+            subscriptionId: monitorSubscriptionId,
+            targetUrl,
+            reportId: report.id,
+            grade,
+            riskScore,
+            vulnerabilityCount: scanResult.vulnerabilities.length,
+            highCriticalCount: scanResult.vulnerabilities.filter(
+              (v) => v.severity === "critical" || v.severity === "high",
+            ).length,
+            scannedAt: completedAt.toISOString(),
+            nextScanAt: nextScanAt.toISOString(),
+            reportUrl: `${process.env.APP_ORIGIN ?? "https://vibescan.app"}/report/${report.id}`,
+          };
+          fetch(updatedSub.webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "User-Agent": "VibeScan-Webhook/1.0" },
+            body: JSON.stringify(webhookPayload),
+            signal: AbortSignal.timeout(10_000),
+          }).catch((err) => log.warn({ err, webhookUrl: updatedSub.webhookUrl }, "Webhook delivery failed (non-fatal)"));
+        }
       } catch (monitorErr) {
         log.warn({ err: monitorErr }, "Failed to update monitor subscription (non-fatal)");
       }

@@ -55,6 +55,8 @@ export const monitorSubscriptionsTable = pgTable("monitor_subscriptions", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastScanAt: timestamp("last_scan_at", { withTimezone: true }),
   lastReportId: uuid("last_report_id"),
+  nextScanAt: timestamp("next_scan_at", { withTimezone: true }),
+  webhookUrl: text("webhook_url"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

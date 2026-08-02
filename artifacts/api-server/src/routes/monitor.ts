@@ -27,6 +27,7 @@ const router: IRouter = Router();
 
 const CreateMonitorBody = z.object({
   targetUrl: z.string().url("Must be a valid URL"),
+  webhookUrl: z.string().url("Webhook must be a valid URL").optional().or(z.literal("")),
 });
 
 // ── POST /api/monitor/subscriptions ──────────────────────────────────────────
@@ -45,7 +46,7 @@ router.post("/monitor/subscriptions", async (req, res): Promise<void> => {
     return;
   }
 
-  const { targetUrl } = parsed.data;
+  const { targetUrl, webhookUrl } = parsed.data;
 
   // Check for an existing active subscription for this user+URL
   const [existing] = await db
@@ -84,6 +85,8 @@ router.post("/monitor/subscriptions", async (req, res): Promise<void> => {
       expiresAt,
       lastReportId: seedReportId,
       lastScanAt: seedScanAt,
+      webhookUrl: webhookUrl || null,
+      nextScanAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     })
     .returning();
 
