@@ -52,31 +52,31 @@ async function processScanJob(job: ScanJob): Promise<void> {
 
   // ── 1. Mark as scanning + initialise per-probe step list ─────────────
   type ScanStep = {
-    key: string; label: string;
+    key: string; label: string; description?: string;
     status: "pending" | "running" | "done" | "error";
     findings?: number; startedAt?: string; doneAt?: string;
   };
 
   const BASIC_STEPS: ScanStep[] = [
-    { key: "ssl",        label: "TLS / SSL Assessment",           status: "pending" },
-    { key: "recon",      label: "Reconnaissance",                  status: "pending" },
-    { key: "crawl",      label: "Site Crawl & Link Analysis",      status: "pending" },
-    { key: "headers",    label: "Security Headers",                status: "pending" },
-    { key: "dns",        label: "DNS Security",                    status: "pending" },
-    { key: "cve",        label: "Known Vulnerability Matching",    status: "pending" },
-    { key: "jwt",        label: "JWT Token Analysis",              status: "pending" },
-    { key: "takeover",   label: "Subdomain Takeover",              status: "pending" },
-    { key: "sourcemaps", label: "Source Map Exposure",             status: "pending" },
-    { key: "vibestack",  label: "Supabase / Firebase Security",    status: "pending" },
-    { key: "baas",       label: "BaaS Open Data",                  status: "pending" },
-    { key: "graphql",    label: "GraphQL Introspection",           status: "pending" },
-    { key: "apidocs",    label: "API Documentation Exposure",      status: "pending" },
-    { key: "nextjs",     label: "Next.js Configuration",           status: "pending" },
-    { key: "storage",    label: "Cloud Storage Buckets",           status: "pending" },
+    { key: "ssl",        label: "TLS & Certificate Chain",             description: "Grading cipher suites, certificate validity, and HTTPS enforcement",                     status: "pending" },
+    { key: "recon",      label: "Subdomain & Port Enumeration",        description: "Mapping exposed services, open ports, and dangling DNS records",                        status: "pending" },
+    { key: "crawl",      label: "Crawling Pages & Endpoints",          description: "Following links to surface hidden paths, inputs, and redirects",                        status: "pending" },
+    { key: "headers",    label: "HTTP Security Headers",               description: "Checking CSP, HSTS, X-Frame-Options, CORS policy, Permissions-Policy, and 15 more",    status: "pending" },
+    { key: "dns",        label: "DNSSEC, SPF & DMARC",                 description: "Validating email authentication records and DNS zone integrity",                        status: "pending" },
+    { key: "cve",        label: "CVE Database Matching",               description: "Cross-referencing detected library versions against NVD and OSV advisories",            status: "pending" },
+    { key: "jwt",        label: "JWT Token Weaknesses",                description: "Detecting none-algorithm attacks, weak secrets, and algorithm confusion",               status: "pending" },
+    { key: "takeover",   label: "Subdomain Takeover",                  description: "Testing dangling CNAME records for hostile third-party takeover",                       status: "pending" },
+    { key: "sourcemaps", label: "Source Map Exposure",                 description: "Scanning JS bundles for .map files that leak minified source code",                     status: "pending" },
+    { key: "vibestack",  label: "Supabase & Firebase Rules",           description: "Testing Row Level Security bypass and Firebase read/write rule enforcement",            status: "pending" },
+    { key: "baas",       label: "PocketBase & Appwrite Access",        description: "Checking for unauthenticated admin UI, open collections, and health endpoints",         status: "pending" },
+    { key: "graphql",    label: "GraphQL Schema Exposure",             description: "Probing for introspection endpoint and field-suggestion schema leakage",                status: "pending" },
+    { key: "apidocs",    label: "Exposed API Documentation",           description: "Detecting Swagger UI, OpenAPI JSON/YAML spec, and Redoc accessible without auth",      status: "pending" },
+    { key: "nextjs",     label: "Next.js Misconfiguration",            description: "Checking for source maps, exposed BUILD_ID, .env leakage, and open HMR endpoint",      status: "pending" },
+    { key: "storage",    label: "Cloud Storage Bucket Listing",        description: "Probing S3, GCS, Azure Blob, and Cloudflare R2 for public directory listing",          status: "pending" },
   ];
   const DEEP_STEPS: ScanStep[] = [
-    { key: "jssecrets",  label: "JavaScript Secret Scanning",      status: "pending" },
-    { key: "traversal",  label: "Path Traversal Probing",          status: "pending" },
+    { key: "jssecrets",  label: "JS Bundle Secret Scanning",           description: "Extracting API keys, tokens, and hardcoded credentials from JavaScript files",         status: "pending" },
+    { key: "traversal",  label: "Path Traversal Probing",              description: "Testing /../ traversal, %2e%2e encoded bypass, and null-byte injection",               status: "pending" },
   ];
 
   const allSteps: ScanStep[] = [...BASIC_STEPS, ...(tier === "deep" ? DEEP_STEPS : [])];
@@ -113,8 +113,8 @@ async function processScanJob(job: ScanJob): Promise<void> {
       return null;
     });
 
-  // Recon runs concurrently: DNS enumeration, subdomain brute-force, port scan
-  onStep("recon", "running");
+  // Stagger recon "running" by 400 ms so the two header steps don't fire simultaneously
+  setTimeout(() => onStep("recon", "running"), 400);
   const reconPromise = runRecon(targetUrl)
     .then((r) => { onStep("recon", r ? "done" : "error"); return r; })
     .catch((err) => {

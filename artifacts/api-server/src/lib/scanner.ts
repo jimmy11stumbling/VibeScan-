@@ -681,16 +681,25 @@ export async function runScan(targetUrl: string, tier: string, onStep?: StepCall
   // CVE lookup, JWT analysis, subdomain takeover, and (deep only) JS secret
   // scanning and path traversal.
 
-  /** Wrap a probe with onStep lifecycle events (replaces individual .catch(() => [])) */
+  /** Wrap a probe with onStep lifecycle events.
+   *  Staggers the "running" notification by `delayMs` so the UI shows
+   *  probes starting one-by-one even though they run in parallel. */
+  let _staggerIdx = 0;
+  const STAGGER_MS = 350;
   const wp = (key: string, p: Promise<ScanVulnerability[]>): Promise<ScanVulnerability[]> => {
-    onStep?.(key, "running");
+    const delay = _staggerIdx++ * STAGGER_MS;
+    if (delay > 0) {
+      setTimeout(() => onStep?.(key, "running"), delay);
+    } else {
+      onStep?.(key, "running");
+    }
     return p.then(
       (r) => { onStep?.(key, "done", r.length); return r; },
       () => { onStep?.(key, "error", 0); return []; },
     );
   };
 
-  // Run crawl separately to capture pagesVisited alongside findings
+  // Crawl gets index 0 (fires immediately); remaining probes stagger from there
   onStep?.("crawl", "running");
   const crawlPromise = crawlAndCheck(
     finalUrl, html, rawHeaders, tier === "deep" ? 20 : 0,

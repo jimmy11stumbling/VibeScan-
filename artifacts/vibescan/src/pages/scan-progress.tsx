@@ -18,6 +18,7 @@ type StepStatus = "pending" | "running" | "done" | "error";
 interface ScanStep {
   key: string;
   label: string;
+  description?: string;
   status: StepStatus;
   findings?: number;
   startedAt?: string;
@@ -108,18 +109,32 @@ function StepRow({ step }: { step: ScanStep }) {
         )}
       />
 
-      {/* Label */}
-      <span
-        className={cn(
-          "flex-1 text-sm font-medium transition-colors",
-          step.status === "pending"  && "text-white/30",
-          step.status === "running"  && "text-foreground",
-          step.status === "done"     && "text-foreground/80",
-          step.status === "error"    && "text-red-300",
+      {/* Label + description */}
+      <div className="flex-1 min-w-0">
+        <span
+          className={cn(
+            "block text-sm font-medium transition-colors leading-snug",
+            step.status === "pending"  && "text-white/30",
+            step.status === "running"  && "text-foreground",
+            step.status === "done"     && "text-foreground/80",
+            step.status === "error"    && "text-red-300",
+          )}
+        >
+          {step.label}
+        </span>
+        {step.description && (step.status === "running" || step.status === "done" || step.status === "error") && (
+          <span
+            className={cn(
+              "block text-xs leading-snug mt-0.5 transition-colors",
+              step.status === "running" && "text-primary/60",
+              step.status === "done"    && "text-muted-foreground/60",
+              step.status === "error"   && "text-red-400/50",
+            )}
+          >
+            {step.description}
+          </span>
         )}
-      >
-        {step.label}
-      </span>
+      </div>
 
       {/* Right-side badge */}
       <div className="shrink-0 text-xs tabular-nums">
